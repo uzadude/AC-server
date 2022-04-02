@@ -46,7 +46,7 @@ void setup() {
   //ac.off();
   ac.setFan(kAirwellFanLow);
   ac.setMode(kAirwellCool);
-  ac.setTemp(25);
+  ac.setTemp(23);
   //ac.setSwing(false);
   printState();
 
@@ -65,35 +65,5 @@ void loop() {
   ac.setPowerToggle(true);
   ac.send();
   printState();
-  delay(15000);  // wait 15 seconds
-  // and set to cooling mode.
-  Serial.println("Set the A/C mode to cooling ...");
-  ac.setMode(kAirwellCool);
-  ac.send();
-  printState();
-  delay(15000);  // wait 15 seconds
-
-  // Increase the fan speed.
-  Serial.println("Set the fan to high and the swing on ...");
-  ac.setFan(kAirwellFanHigh);
-  //ac.setSwing(true);
-  ac.send();
-  printState();
-  delay(15000);
-
-  // Change to Fan mode, lower the speed, and stop the swing.
-  Serial.println("Set the A/C to fan only with a low speed, & no swing ...");
-  //ac.setSwing(false);
-  ac.setMode(kAirwellFan);
-  ac.setFan(kAirwellFanLow);
-  ac.send();
-  printState();
-  delay(15000);
-
-  // Turn the A/C unit off.
-  Serial.println("Turn off the A/C ...");
-  ac.setPowerToggle(false);
-  ac.send();
-  printState();
-  delay(15000);  // wait 15 seconds
+  delay(60000);  // wait 15 seconds
 }
