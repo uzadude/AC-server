@@ -41,8 +41,22 @@ struct state {
   bool powerStatus;
 };
 
-File fsUploadFile;
 state acState;
+
+#define NUM_HIST_POINTS         256
+#define HIST_SAMPLE_INTERVAL  20000
+unsigned long updateDataMillis = millis();
+
+struct dataMeasures {
+    unsigned long *time_millis;
+    double *tmp;
+    double *hum;
+};
+
+dataMeasures measures;
+int rowCount = 0;
+
+File fsUploadFile;
 
 char deviceName[] = "AC Remote Control";
 const char* ssid = "";
@@ -159,6 +173,24 @@ void printState() {
   display.println(roomHumidity);
 
 	display.display();
+}
+
+void addArray(DynamicJsonDocument &doc, std::string name, double arr[], double factor) {
+  JsonArray data = doc.createNestedArray(name);
+  
+  int tsize = rowCount;
+  for(int i = 0; i < tsize; i++){
+      data.add((int)(arr[i] / factor));
+  }
+}
+
+void addArray(DynamicJsonDocument &doc, std::string name, unsigned long arr[], double factor) {
+  JsonArray data = doc.createNestedArray(name);
+  
+  int tsize = rowCount;
+  for(int i = 0; i < tsize; i++){
+      data.add((int)(arr[i] / factor));
+  }
 }
 
 void setup() {
@@ -287,6 +319,21 @@ void setup() {
     server.send(200, "text/plain", output);
   });
 
+  server.on("/data", HTTP_GET, []() {
+    //Serial.println("got data request");
+
+    // trying to estimate the json size
+    DynamicJsonDocument doc((rowCount+1) * 100);
+    dataMeasures dm = measures;
+    addArray(doc, "time_millis", dm.time_millis, 1);
+    addArray(doc, "tmp", dm.tmp, 1);
+    addArray(doc, "hum", dm.hum, 1);
+
+    String output;
+    serializeJson(doc, output);
+    //Serial.println(output);
+    server.send(200, "text/plain", output);
+  });
 
   server.on("/reset", []() {
     server.send(200, "text/html", "reset");
@@ -311,6 +358,10 @@ void setup() {
   //ac.setSwing(false);
   printState();
 
+  measures.time_millis = new unsigned long [NUM_HIST_POINTS];
+  measures.tmp = new double [NUM_HIST_POINTS];
+  measures.hum = new double [NUM_HIST_POINTS];
+
 	// Display Text
 	display.setTextSize(1);
 	display.setTextColor(WHITE);
@@ -318,6 +369,36 @@ void setup() {
 	display.println("Hello world!");
 	display.display();
 
+}
+
+void downsample() {
+  if (rowCount>NUM_HIST_POINTS) {
+
+    Serial.println("Down-sampling data");
+    for (int i = 0; i < (rowCount-1) / 2 ; i++){
+
+        int newRow = i * 2 + 1;
+
+        measures.time_millis[i] = measures.time_millis[newRow];
+        measures.tmp[i] = measures.tmp[newRow];
+        measures.hum[i] = measures.hum[newRow];
+      }
+      //reset rowCount to the new, smaller number so any new writes will start after this culling
+      rowCount = (rowCount / 2);
+      Serial.println(rowCount);
+    }
+
+}
+
+void addMeasurement(double tmp, double hum) {
+  if (millis() - updateDataMillis > HIST_SAMPLE_INTERVAL) {
+    updateDataMillis = millis();
+    measures.time_millis[rowCount] = updateDataMillis;
+    measures.tmp[rowCount] = tmp;
+    measures.hum[rowCount] = hum;
+    rowCount++;
+  }
+  downsample();
 }
 
 void loop() {
@@ -331,6 +412,7 @@ void loop() {
 
     roomTemp = newValues.temperature;
     roomHumidity = newValues.humidity;
+    addMeasurement(newValues.temperature, newValues.humidity);
 
     printState();
     lastPrintMS = millis();

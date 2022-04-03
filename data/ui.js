@@ -36,9 +36,6 @@ function updateStatus() {
 
 updateStatus();
 
-
-
-
 function postData(t) {
   var e = new XMLHttpRequest;
   e.timeout = 2000;
