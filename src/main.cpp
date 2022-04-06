@@ -39,12 +39,14 @@ IRAirwellAc ac(kIrLed);     // Set the GPIO used for sending messages.
 struct state {
   uint8_t temperature = 22, fan = 0, operation = 0;
   bool powerStatus;
+  bool prevPowerStatus;
 };
 
 state acState;
 
 #define NUM_HIST_POINTS         256
-#define HIST_SAMPLE_INTERVAL  20000
+#define HIST_SAMPLE_INTERVAL  60000
+#define HIST_DOWNSAMPLE_FACTOR    6
 unsigned long updateDataMillis = millis();
 
 struct dataMeasures {
@@ -175,21 +177,21 @@ void printState() {
 	display.display();
 }
 
-void addArray(DynamicJsonDocument &doc, std::string name, double arr[], double factor) {
+void addArray(DynamicJsonDocument &doc, std::string name, double arr[]) {
   JsonArray data = doc.createNestedArray(name);
   
   int tsize = rowCount;
   for(int i = 0; i < tsize; i++){
-      data.add((int)(arr[i] / factor));
+      data.add(((int)(arr[i]*100))/100.0);
   }
 }
 
-void addArray(DynamicJsonDocument &doc, std::string name, unsigned long arr[], double factor) {
+void addArray(DynamicJsonDocument &doc, std::string name, unsigned long arr[]) {
   JsonArray data = doc.createNestedArray(name);
   
   int tsize = rowCount;
   for(int i = 0; i < tsize; i++){
-      data.add((int)(arr[i] / factor));
+      data.add(arr[i]);
   }
 }
 
@@ -235,6 +237,7 @@ void setup() {
       }
 
       if (root.containsKey("power")) {
+        acState.prevPowerStatus = acState.powerStatus;
         acState.powerStatus = root["power"];
       }
 
@@ -250,8 +253,9 @@ void setup() {
 
       delay(200);
 
+      ac.setPowerToggle(acState.powerStatus != acState.prevPowerStatus);
+
       if (acState.powerStatus) {
-        ac.setPowerToggle(true);
         ac.setTemp(acState.temperature);
         if (acState.operation == 0) {
           ac.setMode(AUTO_MODE);
@@ -278,8 +282,6 @@ void setup() {
             ac.setFan(FAN_HI);
           }
         }
-      } else {
-        ac.setPowerToggle(true);
       }
       ac.send();
     }
@@ -325,9 +327,9 @@ void setup() {
     // trying to estimate the json size
     DynamicJsonDocument doc((rowCount+1) * 100);
     dataMeasures dm = measures;
-    addArray(doc, "time_millis", dm.time_millis, 1);
-    addArray(doc, "tmp", dm.tmp, 1);
-    addArray(doc, "hum", dm.hum, 1);
+    addArray(doc, "time_millis", dm.time_millis);
+    addArray(doc, "tmp", dm.tmp);
+    addArray(doc, "hum", dm.hum);
 
     String output;
     serializeJson(doc, output);
@@ -372,26 +374,26 @@ void setup() {
 }
 
 void downsample() {
-  if (rowCount>NUM_HIST_POINTS) {
+  if (rowCount>=NUM_HIST_POINTS) {
 
     Serial.println("Down-sampling data");
-    for (int i = 0; i < (rowCount-1) / 2 ; i++){
+    for (int i = 0; i < rowCount - rowCount / HIST_DOWNSAMPLE_FACTOR ; i++) {
 
-        int newRow = i * 2 + 1;
+        int newRow = i * HIST_DOWNSAMPLE_FACTOR/(HIST_DOWNSAMPLE_FACTOR-1) + 1;
 
         measures.time_millis[i] = measures.time_millis[newRow];
         measures.tmp[i] = measures.tmp[newRow];
         measures.hum[i] = measures.hum[newRow];
       }
       //reset rowCount to the new, smaller number so any new writes will start after this culling
-      rowCount = (rowCount / 2);
-      Serial.println(rowCount);
+      rowCount = rowCount - rowCount / HIST_DOWNSAMPLE_FACTOR;
+      //Serial.println(rowCount);
     }
 
 }
 
 void addMeasurement(double tmp, double hum) {
-  if (millis() - updateDataMillis > HIST_SAMPLE_INTERVAL) {
+  if (millis() - updateDataMillis > HIST_SAMPLE_INTERVAL && updateDataMillis<3131922040) {
     updateDataMillis = millis();
     measures.time_millis[rowCount] = updateDataMillis;
     measures.tmp[rowCount] = tmp;
