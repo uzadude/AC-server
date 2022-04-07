@@ -157,7 +157,7 @@ void printState() {
   display.clearDisplay();
 	display.setCursor(0,0);
 	display.setTextSize(1);
-	display.println("AC state");
+	//display.println("AC state");
 	display.print("power toggle: ");
   display.println(ac.getPowerToggle());
 	display.print("Temp: ");
@@ -167,8 +167,9 @@ void printState() {
 	display.print("     Fan: ");
   display.println(ac.getFan());
   display.println();
+  display.println(WiFi.localIP());
 
-	display.println("Room State");
+	//display.println("Room State");
   display.print("Tempratue: ");
   display.println(roomTemp);
 	display.print("Humidity: ");
