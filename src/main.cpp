@@ -152,7 +152,10 @@ void printState() {
   Serial.println("Airwell A/C remote is in the following state:");
   Serial.printf("  %s\n", ac.toString().c_str());
   Serial.print("WiFi: ");
-  Serial.println(WiFi.localIP()); // Print the IP address
+  Serial.print(WiFi.localIP()); // Print the IP address
+  Serial.print("  ");
+  Serial.print(WiFi.RSSI()); // Print the Signal
+  Serial.println("dBm");
 
   display.clearDisplay();
 	display.setCursor(0,0);
@@ -167,7 +170,10 @@ void printState() {
 	display.print("     Fan: ");
   display.println(ac.getFan());
   display.println();
-  display.println(WiFi.localIP());
+  display.print(WiFi.localIP());
+  display.print(" ");
+  display.print(WiFi.RSSI());
+  display.println("dB");
 
 	//display.println("Room State");
   display.print("Tempratue: ");
